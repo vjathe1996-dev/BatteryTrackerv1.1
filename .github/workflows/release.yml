@@ -1,0 +1,38 @@
+name: Build v1.0
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - run: unzip -q BatteryTracker.zip
+      - name: Build
+        working-directory: BatteryTracker
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+            gradle assembleRelease bundleRelease --no-daemon
+          else
+            gradle assembleDebug --no-daemon
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BatteryTracker-v1.0
+          path: |
+            BatteryTracker/app/build/outputs/apk/**/*.apk
+            BatteryTracker/app/build/outputs/bundle/release/*.aab
